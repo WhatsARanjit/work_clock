@@ -34,6 +34,7 @@
     <th width='500px'>Timestamp</th>
     <th>Activity</th>
     <th>Duration (m)</th>
+    <th></th>
   </thead>
   <tbody>
   </tbody>
@@ -143,7 +144,17 @@ $('input#log').click(function() {
     logTime($('#custom-box').val())
     addSelect($('#custom-box').val())
   }
+  $('button.trash').click(function() {
+    console.log('trash')
+    $(this).closest('tr').remove()
+    updateRow($('#timesheet > tbody tr:last-child'), 'duration', currentIndicator())
+    refreshTotals()
+  })
 })
+
+function currentIndicator() {
+  return '<span class="text-success">current</span>'
+}
 
 $('.no-enter').keypress(function(e) {
   if (e.which == '13') {
@@ -195,7 +206,8 @@ function logTime(activity) {
     '<tr activity="'+ activity +'">',
     '<td class="adjustable" time="'+ now +'">'+ now +'</td>',
     '<td class="adjustable">'+ activity +'</td>',
-    '<td><span class="text-success">current</span></td>',
+    '<td>'+ currentIndicator() +'</td>',
+    '<td width="20px"><button type="button" class="btn btn-danger trash"><span class="glyphicon glyphicon-trash"></span></button></td>',
     '</tr>'
   ]
   updateRow($('#timesheet tr:last-child'), 'duration', timeDiff(now))
