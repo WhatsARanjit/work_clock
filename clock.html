@@ -1,0 +1,296 @@
+<html>
+<head>
+  <link rel='shortcut icon' href='https://www.opentimeclock.com/assets/img/favicon.ico' type='image/x-icon'>
+  <link rel='stylesheet' href='https://getbootstrap.com/docs/3.3/dist/css/bootstrap.min.css'>
+  <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js'></script>
+</head>
+
+<body>
+<div id='container' class='container'>
+
+<br>
+<form class='form-inline'>
+  <div class='form-group'>
+    <label for='activity-box'>Pick: </label>
+    <select class='form-control' id='activity-box'>
+      <option value='Downtime' selected=''>Downtime</option>
+      <option value='Classroom materials'>Classroom materials</option>
+      <option value='Tool development'>Tool development</option>
+      <option value='Admin/Meetings'>Admin/Meetings</option>
+      <option value='Onboarding'>Onboarding</option>
+      <option value='Troubleshooting'>Troubleshooting</option>
+      <!--
+      <option value=''></option>
+      -->
+    </select>
+    <label for='custom-box'>Custom: </label>
+    <input type='text' id='custom-box' class='form-control no-enter' />
+    <input type='button' id='log' class='btn btn-warning' value='Log' />
+  </div>
+</form>
+
+<table id='timesheet' class='table table-striped'>
+  <thead>
+    <th width='500px'>Timestamp</th>
+    <th>Activity</th>
+    <th>Duration (m)</th>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+<hr>
+<table id='report' class='table table-condensed table-hover'>
+  <thead>
+    <th>Activity</th>
+    <th>Time (m)</th>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+</div>
+<script>
+// Table functions
+function columnID(col, child = false) {
+  var cols = [
+    'timestamp',
+    'activity',
+    'duration'
+  ]
+  if (child) {
+    return parseInt(cols.indexOf(col) + 1)
+  }
+  else {
+    return parseInt(cols.indexOf(col))
+  }
+}
+
+function rowData(row, key = false) {
+  var cells   = row.find('td')
+  var results = []
+
+  row.find('td').each(function() {
+    results.push($(this).text())
+  })
+
+  if (key) {
+    return results[columnID(key)]
+  }
+  else {
+    return results
+  }
+}
+
+function lastRow(key = false) {
+  var last_row = $('#timesheet > tbody tr:last-child')
+  return rowData(last_row, key)
+
+}
+
+function previousRow(row, key = false) {
+  var parent_row = row.closest('tr')
+  var prev_row   = parent_row.prev()
+  return rowData(prev_row, key)
+}
+
+function nextRow(row, key = false) {
+  var parent_row = row.closest('tr')
+  var next_row   = parent_row.next()
+  return rowData(next_row, key)
+}
+
+function updateRow(row, key, value) {
+  row.find('td:nth-child('+columnID(key, true)+')').html(value)
+}
+
+function getColumn(key, filterk = false, filterv = false) {
+  var index   = columnID(key) + 1
+  var results = []
+
+  $('#timesheet > tbody tr').each(function() {
+    if (filterk) {
+      if (rowData($(this), filterk) == filterv) {
+        results.push(rowData($(this), key))
+      }
+    }
+    else {
+      results.push(rowData($(this), key))
+    }
+  })
+  return results
+}
+
+// Math helpers
+function roundTime(num, interval = 15) {
+  return Math.ceil(num/interval) * interval
+}
+
+function addNumbers(arr) {
+  var total = 0
+  for (i in arr) {
+    if (arr[i] != 'current') {
+      total += roundTime(parseInt(arr[i]))
+    }
+  }
+  return total
+}
+
+// UI binders
+$('input#log').click(function() {
+  if ($('#custom-box').val() == '') {
+    logTime($('#activity-box').val())
+  } else {
+    logTime($('#custom-box').val())
+    addSelect($('#custom-box').val())
+  }
+})
+
+$('.no-enter').keypress(function(e) {
+  if (e.which == '13') {
+    e.preventDefault()
+    return false
+  }
+})
+
+function currentSelect() {
+  var options = []
+  $('select#activity-box option').each(function() {
+    options.push($(this).attr('value'))
+  })
+  return options
+}
+
+function addSelect(activity) {
+  if (currentSelect().indexOf(activity) < 1) {
+    $('select#activity-box').append('<option value="'+ activity +'">'+ activity +'</option>')
+    $('select#activity-box').children().attr('selected', false)
+    $('select#activity-box').children('[value="'+activity+'"]').attr('selected', 'selected')
+    $('input#custom-box').val('')
+  }
+}
+
+// Time management
+function currentTime(offset = '+5') {
+  var d   = new Date()
+  var utc = d.getTime() - (d.getTimezoneOffset() * 60000)
+  var nd  = new Date(utc + (3600000 * offset))
+  return nd
+}
+
+function timeDiff(timeA, timeB = false) {
+  if (timeB == false) {
+    last_time = lastRow('timestamp')
+  } else {
+    last_time = timeB
+  }
+  var diff_seconds = Date.parse(timeA) - Date.parse(last_time)
+  return Math.ceil(diff_seconds/1000/60)
+}
+
+// Reports
+function logTime(activity) {
+  console.log('Activity: ' + activity)
+  var now    = currentTime()
+  var newrow = [
+    '<tr activity="'+ activity +'">',
+    '<td class="adjustable" time="'+ now +'">'+ now +'</td>',
+    '<td class="adjustable">'+ activity +'</td>',
+    '<td><span class="text-success">current</span></td>',
+    '</tr>'
+  ]
+  updateRow($('#timesheet tr:last-child'), 'duration', timeDiff(now))
+  last_activity = lastRow('activity')
+  $('#timesheet > tbody:last-child').append(newrow.join())
+  totalMinutes(last_activity)
+  editBoxes()
+}
+
+function totalMinutes(activity) {
+  var total  = addNumbers(getColumn('duration', 'activity', activity))
+  var newrow = [
+    '<tr activity="'+ activity +'">',
+    '<td>'+ activity +'</td>',
+    '<td>'+ total +'</td>',
+    '</tr>'
+  ]
+  if (activity != undefined ) {
+    // If a listing already exists, update.  Else, add a new one.
+    if ($('#report tr[activity="'+ activity  +'"]').length > 0) {
+      $('#report tr[activity="'+ activity  +'"] > td:last-child').html(total)
+    } else if (total > 0) {
+      $('#report > tbody:last-child').append(newrow.join())
+    }
+  }
+}
+
+function refreshTotals() {
+  $('#timesheet > tbody tr').each(function() {
+    var this_row = rowData($(this), 'timestamp')
+    var next_row = nextRow($(this), 'timestamp')
+    if (rowData($(this), 'duration') != 'current' ) {
+      updateRow($(this), 'duration', timeDiff(next_row, this_row))
+    }
+  })
+  activities = getColumn('activity')
+  for (i in activities) {
+    totalMinutes(activities[i])
+  }
+}
+
+
+logTime('Downtime', false)
+
+function editOptions(cell) {
+  cell.attr('edit', 'true')
+  var current  = cell.html()
+  var newinput = [
+    '<form class="navbar-form navbar-left">',
+    '<input class="form-control no-enter" type="text" value="'+ current +'" />',
+    '<div class="btn-group" role="group">',
+    '<button type="button" class="btn btn-success" do="saveBox">',
+    '<span class="glyphicon glyphicon-ok"></span>',
+    '</button>',
+    '<button type="button" class="btn btn-danger" do="removeBox">',
+    '<span class="glyphicon glyphicon-remove"></span>',
+    '</button>',
+    '</div>',
+    '</form>'
+  ]
+  cell.html(newinput.join(''))
+  // Remove clickability
+  cell.off('click')
+  // Arm buttons
+  cell.find('button[do="saveBox"]').click(function() {
+    parenttd = $(this).closest('td')
+    parenttd.html(parenttd.find('input').val())
+    parenttd.attr('edit', 'false')
+    parenttd.on('click', function() {
+      editBoxes()
+      refreshTotals()
+    })
+  })
+  cell.find('button[do="removeBox"]').click(function() {
+    parenttd = $(this).closest('td')
+    parenttd.html(current)
+    parenttd.attr('edit', 'false')
+    parenttd.on('click', function() {
+      editBoxes()
+    })
+  })
+}
+
+function editBoxes() {
+  $('td.adjustable').each(function() {
+    if ($(this).attr('edit') != 'true') {
+      // Reset click events
+      $(this).off('click')
+      $(this).click(function() {
+        editOptions($(this))
+      })
+    }
+  })
+}
+</script>
+</body>
+
+</html>
