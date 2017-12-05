@@ -8,7 +8,7 @@
 <body>
 <div id='container' class='container'>
 
-<br>
+<div class='row'>
 <form class='form-inline'>
   <div class='form-group'>
     <label for='activity-box'>Pick: </label>
@@ -28,7 +28,10 @@
     <input type='button' id='log' class='btn btn-warning' value='Log' />
   </div>
 </form>
+</div>
 
+<div class='row'>
+<div class='col-md-9'>
 <table id='timesheet' class='table table-striped'>
   <thead>
     <th width='500px'>Timestamp</th>
@@ -39,8 +42,10 @@
   <tbody>
   </tbody>
 </table>
-<hr>
-<table id='report' class='table table-condensed table-hover'>
+</div>
+
+<div class='col-md-3'>
+<table id='report' class='table table-hover'>
   <thead>
     <th>Activity</th>
     <th>Time (m)</th>
@@ -50,6 +55,9 @@
 </table>
 
 </div>
+</div>
+</div>
+
 <script>
 // Table functions
 function columnID(col, child = false) {
@@ -126,11 +134,15 @@ function roundTime(num, interval = 15) {
   return Math.ceil(num/interval) * interval
 }
 
-function addNumbers(arr) {
+function addNumbers(arr, round = true) {
   var total = 0
   for (i in arr) {
     if (arr[i] != 'current') {
-      total += roundTime(parseInt(arr[i]))
+      if (round) {
+        total += roundTime(parseInt(arr[i]))
+      } else {
+        total += parseInt(arr[i])
+      }
     }
   }
   return total
@@ -145,7 +157,6 @@ $('input#log').click(function() {
     addSelect($('#custom-box').val())
   }
   $('button.trash').click(function() {
-    console.log('trash')
     $(this).closest('tr').remove()
     updateRow($('#timesheet > tbody tr:last-child'), 'duration', currentIndicator())
     refreshTotals()
@@ -190,9 +201,9 @@ function currentTime(offset = '+5') {
 
 function timeDiff(timeA, timeB = false) {
   if (timeB == false) {
-    last_time = lastRow('timestamp')
+    var last_time = lastRow('timestamp')
   } else {
-    last_time = timeB
+    var last_time = timeB
   }
   var diff_seconds = Date.parse(timeA) - Date.parse(last_time)
   return Math.ceil(diff_seconds/1000/60)
@@ -211,14 +222,18 @@ function logTime(activity) {
     '</tr>'
   ]
   updateRow($('#timesheet tr:last-child'), 'duration', timeDiff(now))
-  last_activity = lastRow('activity')
+  var last_activity = lastRow('activity')
   $('#timesheet > tbody:last-child').append(newrow.join())
   totalMinutes(last_activity)
   editBoxes()
 }
 
 function totalMinutes(activity) {
-  var total  = addNumbers(getColumn('duration', 'activity', activity))
+  if (activity == 'Downtime') {
+    var total  = addNumbers(getColumn('duration', 'activity', activity), false)
+  } else {
+    var total  = addNumbers(getColumn('duration', 'activity', activity))
+  }
   var newrow = [
     '<tr activity="'+ activity +'">',
     '<td>'+ activity +'</td>',
@@ -243,7 +258,7 @@ function refreshTotals() {
       updateRow($(this), 'duration', timeDiff(next_row, this_row))
     }
   })
-  activities = getColumn('activity')
+  var activities = getColumn('activity')
   for (i in activities) {
     totalMinutes(activities[i])
   }
